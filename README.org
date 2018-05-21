@@ -1,0 +1,196 @@
+#+TITLE: RHEAS Training for SERVIR-ADPC/VAWR
+#+AUTHOR: Kostas Andreadis
+#+OPTIONS: author:nil date:nil
+
+This document conatins a narrative for the [[https://github.com/nasa/RHEAS][RHEAS]] training at ADPC and VAWR.
+* Installation
+In this training, we will be using the [[https://github.com/kandread/RHEAS-docker][RHEAS Docker]] image. Assuming that you have installed the [[https://www.docker.com/][Docker]] software following the instructions (for [[https://docs.docker.com/docker-for-windows/install/][Windows]] and [[https://docs.docker.com/docker-for-mac/install/][Mac]]), we start by initializing the PostGIS database service in a terminal window
+#+BEGIN_SRC sh
+docker-compose up -d
+#+END_SRC
+Depending on whether you want to pull the Docker image from the internet or from the local directory, you can do the following for the latter case before you run the above command
+#+BEGIN_SRC sh
+docker load < rheas.latest.tar.gz
+docker load < postgis_9.6.tar.gz
+#+END_SRC
+We now have a RHEAS container ready to run! Let's set an alias so we're able to call ~rheas~ without typing too much
+#+BEGIN_SRC sh
+alias rheas='docker-compose run rheas bin/rheas'
+#+END_SRC
+* Setting up the QGIS plugin
+Assuming that you have installed version 3 of [[https://qgis.org/en/site/][QGIS]], you can click on the ~Plugins~ → ~Manage and Install Plugins...~ → ~Install from ZIP~ and select the [[https://github.com/kandread/RHEAS-qgis][RHEAS-qgis]] zip file.
+* Acquiring datasets
+The database in the Docker image already has meteorological data ingested including
+- CHIRPS and GPM precipitation
+- NCEP reanalysis air temperature and wind speed
+Now let's see download some soil moisture data from the SMOS satellite. We have to write a configuration file ~data.conf~
+#+BEGIN_EXAMPLE
+[domain]
+minlat: 8.5
+maxlat: 23.4
+minlon: 102.1
+maxlon: 109.4
+
+[smos]
+startdate: 2017-4-1
+enddate: 2017-6-30
+#+END_EXAMPLE
+and then run ~rheas~ with
+#+BEGIN_SRC sh
+rheas -v -u /data/data.conf
+#+END_SRC
+* Running a hydrologic nowcast
+We will perform a nowcast simulation by writing another configuration file ~nowcast.conf~
+#+BEGIN_EXAMPLE
+[nowcast]
+model: vic
+startdate: 2016-1-1
+enddate: 2016-12-31
+basin: /data/shapefiles/vnm0.shp
+name: vawr
+resolution: 0.25
+
+[vic]
+precip: chirps
+temperature: ncep
+wind: ncep
+save: runoff, cdi
+#+END_EXAMPLE
+and then executing
+#+BEGIN_SRC sh
+rheas -v /data/nowcast.conf
+#+END_SRC
+* Running a hydrologic ensemble nowcast
+Apart from the CHIRPS precipitation data, the database also contains GPM precipitation data for a shorter period. This allows us to perform a stochastic simulation that represents the uncertainty from the different precipitation datasets.
+The ~nowcast.conf~ now becomes
+#+BEGIN_EXAMPLE
+[nowcast]
+model: vic
+startdate: 2016-1-1
+enddate: 2016-1-31
+basin: /data/shapefiles/vnm0.shp
+name: vawr
+resolution: 0.25
+
+[vic]
+precip: chirps, gpm
+temperature: ncep
+wind: ncep
+save to: db
+save: runoff
+#+END_EXAMPLE
+which we can then run as
+#+BEGIN_SRC sh
+rheas -v /data/nowcast.conf
+#+END_SRC
+* Assimilating satellite observations
+We can now ingest additional satellite information by assimilating the SMOS soil moisture observations.
+#+BEGIN_EXAMPLE
+[nowcast]
+model: vic
+startdate: 2017-4-1
+enddate: 2017-4-3
+basin: /data/shapefiles/vnm0.shp
+name: vawr
+resolution: 0.25
+
+[vic]
+precip: chirps
+temperature: ncep
+wind: ncep
+save to: db
+save: runoff
+observations: smos
+#+END_EXAMPLE
+We can run the nowcast similarly to before
+#+BEGIN_SRC 
+rheas -v /data/nowcast.conf
+#+END_SRC
+* Running a hydrologic forecast
+A forecast can be run similarly to a nowcast by also selecting a method (ESP or NMME) to generate the ensemble with the ~forecast.conf~ containing
+#+BEGIN_EXAMPLE
+[forecast]
+model: vic
+startdate: 2016-1-1
+enddate: 2016-3-31
+basin: /data/shapefiles/VNM_adm0.shp
+name: vawr
+resolution: 0.25
+ensemble size: 2
+method: esp
+
+[vic]
+precip: chirps
+temperature: ncep
+wind: ncep
+save to: db
+save: runoff
+#+END_EXAMPLE
+and
+#+BEGIN_SRC sh
+rheas -v /data/forecast.conf
+#+END_SRC
+* Running an agricultural nowcast
+We can modify the ~nowcast.conf~ by adding "dssat" in the ~model~ keyword, and some parameters for the DSSAT model.
+#+BEGIN_EXAMPLE
+[nowcast]
+model: vic, dssat
+startdate: 2016-1-1
+enddate: 2016-12-31
+basin: /data/shapefiles/vnm0.shp
+name: vawr
+resolution: 0.25
+
+[vic]
+precip: chirps
+temperature: ncep
+wind: ncep
+save to: db
+save: runoff, cdi
+
+[dssat]
+shapefile: /data/shapefiles/vnm0.shp
+ensemble size: 40
+assimilate: off
+crop: rice
+#+END_EXAMPLE
+Unless we explicitly set the required output variables when running VIC (rainfall, soil moisture, net radiative fluxes, air temperature), we need to run both models to have RHEAS automatically generate them. A ~dssat~ table will be created under the simulation schema (~vawr~ in this example) conatining the time series of yield, LAI and water stress as well as a ~yield~ table containing the crop yield during harvest.
+#+BEGIN_SRC sh
+rheas -v /data/nowcast.conf
+#+END_SRC
+* Running an agricultural forecast
+Similarly to the agricultural nowcast, we can run a forecast by modifying the ~forecast.conf~ file
+#+BEGIN_EXAMPLE
+[forecast]
+model: vic, dssat
+startdate: 2016-1-1
+enddate: 2016-3-31
+basin: /data/shapefiles/vnm0.shp
+name: vawr
+resolution: 0.25
+ensemble size: 2
+method: esp
+
+[vic]
+precip: chirps
+temperature: ncep
+wind: ncep
+save to: db
+save: runoff
+
+[dssat]
+shapefile: /data/shapefiles/vnm0.shp
+ensemble size: 40
+assimilate: off
+crop: rice
+#+END_EXAMPLE
+and running
+#+BEGIN_SRC sh
+rheas -v /data/forecast.conf
+#+END_SRC
+* Impact of agricultural management practices
+* Analysis of crop productivity
+* Topics for discussion
+- Interface for DSSAT inputs (fertilizer, irrigation, cultivars)
+- Implementation of 5-km simulations in terms of computing requirements
+- What are the priorities for ADPC and VAWR during the final year of the SERVIR project?

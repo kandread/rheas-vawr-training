@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  rheasdb:
+    image: mdillon/postgis:9.6
+    environment:
+      - "POSTGRES_USER=rheas"
+      - "POSTGRES_PASSWORD=docker"
+      - "POSTGRES_DB=rheas"
+    ports:
+      - 5432:5432
+    networks:
+      - rheas_net
+    volumes:
+      - "dbdata:/var/lib/postgresql/data"
+  rheas:
+    image: kandread/rheas
+    networks:
+      - rheas_net
+    depends_on:
+      - rheasdb
+    networks:
+      - rheas_net
+    environment:
+      - "PGHOST=rheasdb"
+      - "PGUSER=rheas"
+      - "PGPASSWORD=docker"
+    volumes:
+      - .:/data
+    stdin_open: true
+    tty: true
+
+networks:
+  rheas_net:
+    driver: bridge
+    
+volumes:
+  dbdata:

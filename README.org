@@ -17,8 +17,15 @@ We now have a RHEAS container ready to run! Let's set an alias so we're able to 
 #+BEGIN_SRC sh
 alias rheas='docker-compose run rheas bin/rheas'
 #+END_SRC
+The final step is ingesting a prepared database image to our container
+#+BEGIN_SRC sh
+docker-compose run rheas 'pg_restore -d rheas /data/vawrdb'
+#+END_SRC
 * Setting up the QGIS plugin
-Assuming that you have installed version 3 of [[https://qgis.org/en/site/][QGIS]], you can click on the ~Plugins~ → ~Manage and Install Plugins...~ → ~Install from ZIP~ and select the [[https://github.com/kandread/RHEAS-qgis][RHEAS-qgis]] zip file.
+Assuming that you have installed version 3 of [[https://qgis.org/en/site/][QGIS]], you can click on the ~Plugins~ → ~Manage and Install Plugins...~ → ~Install from ZIP~ and select the [[https://github.com/kandread/RHEAS-qgis][RHEAS-qgis]] zip file. Before installing the plugin though we need to create the connection to the RHEAS Docker database.
+Under the ~Browser~ panel, right-click on the PostGIS entry and select ~New connection~. A dialog box will open up where you can input the following entries
+
+[[file:qgis-db.png]]
 * Acquiring datasets
 The database in the Docker image already has meteorological data ingested including
 - CHIRPS and GPM precipitation

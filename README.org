@@ -4,14 +4,15 @@
 
 This document conatins a narrative for the [[https://github.com/nasa/RHEAS][RHEAS]] training at ADPC and VAWR.
 * Installation
-In this training, we will be using the [[https://github.com/kandread/RHEAS-docker][RHEAS Docker]] image. Assuming that you have installed the [[https://www.docker.com/][Docker]] software following the instructions (for [[https://docs.docker.com/docker-for-windows/install/][Windows]] and [[https://docs.docker.com/docker-for-mac/install/][Mac]]), we start by initializing the PostGIS database service in a terminal window
-#+BEGIN_SRC sh
-docker-compose up -d
-#+END_SRC
+In this training, we will be using the [[https://github.com/kandread/RHEAS-docker][RHEAS Docker]] image. Assuming that you have installed the [[https://www.docker.com/][Docker]] software following the instructions (for [[https://docs.docker.com/docker-for-windows/install/][Windows]] and [[https://docs.docker.com/docker-for-mac/install/][Mac]]).
 Depending on whether you want to pull the Docker image from the internet or from the local directory, you can do the following for the latter case before you run the above command
 #+BEGIN_SRC sh
 docker load < rheas.latest.tar.gz
 docker load < postgis_9.6.tar.gz
+#+END_SRC
+We start by initializing the PostGIS database service in a terminal window
+#+BEGIN_SRC sh
+docker-compose up -d
 #+END_SRC
 We now have a RHEAS container ready to run! Let's set an alias so we're able to call ~rheas~ without typing too much
 #+BEGIN_SRC sh
